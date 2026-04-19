@@ -1,0 +1,19 @@
+[Unit]
+Description=RoboMimic deploycpp launcher
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=unitree
+WorkingDirectory=/home/unitree/RoboMimic_Deploy/deploy_real/deploycpp
+ExecStart=/home/unitree/RoboMimic_Deploy/deploy_real/deploycpp/build_release/robomimic_deploycpp --launcher /home/unitree/RoboMimic_Deploy
+Restart=always
+RestartSec=2
+KillSignal=SIGINT
+TimeoutStopSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

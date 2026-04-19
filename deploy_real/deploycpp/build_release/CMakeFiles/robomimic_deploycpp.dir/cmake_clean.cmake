@@ -1,0 +1,43 @@
+file(REMOVE_RECURSE
+  "CMakeFiles/robomimic_deploycpp.dir/src/Controller.cpp.o"
+  "CMakeFiles/robomimic_deploycpp.dir/src/Controller.cpp.o.d"
+  "CMakeFiles/robomimic_deploycpp.dir/src/FSMController.cpp.o"
+  "CMakeFiles/robomimic_deploycpp.dir/src/FSMController.cpp.o.d"
+  "CMakeFiles/robomimic_deploycpp.dir/src/RobotIO.cpp.o"
+  "CMakeFiles/robomimic_deploycpp.dir/src/RobotIO.cpp.o.d"
+  "CMakeFiles/robomimic_deploycpp.dir/src/config/Config.cpp.o"
+  "CMakeFiles/robomimic_deploycpp.dir/src/config/Config.cpp.o.d"
+  "CMakeFiles/robomimic_deploycpp.dir/src/launcher/Launcher.cpp.o"
+  "CMakeFiles/robomimic_deploycpp.dir/src/launcher/Launcher.cpp.o.d"
+  "CMakeFiles/robomimic_deploycpp.dir/src/launcher/LauncherStateMachine.cpp.o"
+  "CMakeFiles/robomimic_deploycpp.dir/src/launcher/LauncherStateMachine.cpp.o.d"
+  "CMakeFiles/robomimic_deploycpp.dir/src/main.cpp.o"
+  "CMakeFiles/robomimic_deploycpp.dir/src/main.cpp.o.d"
+  "CMakeFiles/robomimic_deploycpp.dir/src/math/QuaternionUtils.cpp.o"
+  "CMakeFiles/robomimic_deploycpp.dir/src/math/QuaternionUtils.cpp.o.d"
+  "CMakeFiles/robomimic_deploycpp.dir/src/policy/OnnxPolicyRunner.cpp.o"
+  "CMakeFiles/robomimic_deploycpp.dir/src/policy/OnnxPolicyRunner.cpp.o.d"
+  "CMakeFiles/robomimic_deploycpp.dir/src/policy/TorchPolicyRunner.cpp.o"
+  "CMakeFiles/robomimic_deploycpp.dir/src/policy/TorchPolicyRunner.cpp.o.d"
+  "CMakeFiles/robomimic_deploycpp.dir/src/robot/CommandUtils.cpp.o"
+  "CMakeFiles/robomimic_deploycpp.dir/src/robot/CommandUtils.cpp.o.d"
+  "CMakeFiles/robomimic_deploycpp.dir/src/robot/RemoteControl.cpp.o"
+  "CMakeFiles/robomimic_deploycpp.dir/src/robot/RemoteControl.cpp.o.d"
+  "CMakeFiles/robomimic_deploycpp.dir/src/states/BeyondMimic2State.cpp.o"
+  "CMakeFiles/robomimic_deploycpp.dir/src/states/BeyondMimic2State.cpp.o.d"
+  "CMakeFiles/robomimic_deploycpp.dir/src/states/BeyondMimicState.cpp.o"
+  "CMakeFiles/robomimic_deploycpp.dir/src/states/BeyondMimicState.cpp.o.d"
+  "CMakeFiles/robomimic_deploycpp.dir/src/states/FixedPoseState.cpp.o"
+  "CMakeFiles/robomimic_deploycpp.dir/src/states/FixedPoseState.cpp.o.d"
+  "CMakeFiles/robomimic_deploycpp.dir/src/states/LocoModeState.cpp.o"
+  "CMakeFiles/robomimic_deploycpp.dir/src/states/LocoModeState.cpp.o.d"
+  "CMakeFiles/robomimic_deploycpp.dir/src/states/PassiveState.cpp.o"
+  "CMakeFiles/robomimic_deploycpp.dir/src/states/PassiveState.cpp.o.d"
+  "robomimic_deploycpp"
+  "robomimic_deploycpp.pdb"
+)
+
+# Per-language clean rules from dependency scanning.
+foreach(lang CXX)
+  include(CMakeFiles/robomimic_deploycpp.dir/cmake_clean_${lang}.cmake OPTIONAL)
+endforeach()
