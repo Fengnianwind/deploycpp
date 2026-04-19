@@ -7,7 +7,3 @@ lowstate_topic: "rt/lowstate"
 control_dt: 0.02
 
 error_over_time: 5
-
-enable_fk_state_estimation: true
-fk_xml_path: "g1_description/g1_29dof_rev_1_0.xml"
-fk_contact_height_threshold: 0.03

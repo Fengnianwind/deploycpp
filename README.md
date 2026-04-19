@@ -6,95 +6,60 @@
 </div>
 
 <p align="center">
-  <strong>Deployment workspace for Unitree G1 (29-DoF), covering Mujoco simulation, a legacy Python real-robot entry, and the current C++ onboard deployment path for Orin NX.</strong>
+  <strong>A focused C++ onboard deployment workspace for Unitree G1 (29-DoF) on Orin NX.</strong>
 </p>
 
-## Current Status
+## Overview
 
-This repository has evolved from a Python-first demo into a project whose main real-robot path is `deploy_real/deploycpp`.
+This repository is now trimmed to the C++ onboard deployment path centered on `deploy_real/deploycpp`.
 
-What is current today:
+The current runtime stack is:
 
-- The recommended real-robot deployment path is the C++ program under `deploy_real/deploycpp`.
-- The C++ deploy path targets Unitree G1 with a 3-DoF waist and is intended to run onboard on Orin NX (`aarch64`).
-- The active C++ finite-state machine currently supports 5 states:
-  - `Passive`
-  - `FixedPose`
-  - `LocoMode`
-  - `BeyondMimic`
-  - `BeyondMimic2`
-- `LocoMode` uses LibTorch / TorchScript.
-- `BeyondMimic` and `BeyondMimic2` use ONNX Runtime.
-- A launcher mode and `systemd` service are included for unattended onboard startup.
+- `Passive`
+- `FixedPose`
+- `LocoMode`
+- `BeyondMimic`
+- `BeyondMimic2`
 
-What is still in the repo but is no longer the main story of the root README:
+Model backends:
 
-- `deploy_real/deploy_real.py` remains as the older Python real-robot entry.
-- Older policy assets such as `dance`, `kungfu`, `kick`, `skill_cast`, and `skill_cooldown` are still present under `policy/`, but the current onboard C++ flow is centered on `Passive -> FixedPose -> LocoMode / BeyondMimic / BeyondMimic2`.
+- `LocoMode` -> LibTorch / TorchScript
+- `BeyondMimic` -> ONNX Runtime
+- `BeyondMimic2` -> ONNX Runtime
+
+The intended target is Unitree G1 with a 3-DoF waist, running onboard on Orin NX (`aarch64`).
 
 ## Repository Layout
 
 | Path | Role |
 | --- | --- |
-| `deploy_mujoco/` | Mujoco simulation entry |
-| `deploy_real/deploy_real.py` | Legacy Python real-robot entry |
-| `deploy_real/deploycpp/` | Current C++ onboard deployment program |
-| `deploy_real/config/real.yaml` | Robot / DDS / timing config shared by real deployment |
+| `deploy_real/deploycpp/` | Main C++ onboard deployment program |
+| `deploy_real/config/real.yaml` | Runtime DDS / timing config for deploycpp |
+| `policy/passive/` | Passive state config |
+| `policy/fixedpose/` | FixedPose state config |
 | `policy/loco_mode/` | Walking policy config and TorchScript model |
-| `policy/beyond_mimic/` | BeyondMimic ONNX policy assets |
-| `policy/beyond_mimic2/` | BeyondMimic2 ONNX policy assets |
-| `tests/` | Python-side tests and utilities already present in the repo |
-| `deploy_real/deploycpp/tests/` | C++ unit / smoke / FSM / launcher tests |
-| `deploy_real/deploycpp/systemd/` | Onboard auto-start service files |
+| `policy/beyond_mimic/` | BeyondMimic ONNX config and model |
+| `policy/beyond_mimic2/` | BeyondMimic2 ONNX config and model |
+| `g1_description/` | Robot description assets kept in the workspace |
 
-## Execution Paths
-
-### 1. Mujoco Simulation
-
-Use this when you want to validate policies and controller flow without hardware:
-
-```bash
-python deploy_mujoco/deploy_mujoco.py
-```
-
-### 2. Legacy Python Real Deployment
-
-This path still exists, but it is no longer the main deployment direction of the project:
-
-```bash
-python deploy_real/deploy_real.py
-```
-
-### 3. Current C++ Onboard Deployment
-
-This is the main path the project is now organized around:
-
-- executable: `deploy_real/deploycpp/build_release/robomimic_deploycpp`
-- intended platform: Unitree G1 onboard Orin NX
-- dependencies: `unitree_sdk2` C++ SDK, ONNX Runtime (`aarch64`), LibTorch (`aarch64`), `yaml-cpp`, `cmake`, `g++`
-
-The detailed onboard deployment guide lives in:
-
-- English / Chinese mixed board-deploy note: `deploy_real/deploycpp/README.md`
-
-## Current C++ FSM and Controls
+## FSM and Controls
 
 ### Runner States
 
-The onboard runner currently uses this state machine:
+The onboard runner uses this state chain:
 
 ```text
 Passive -> FixedPose -> LocoMode / BeyondMimic / BeyondMimic2
 ```
 
-Supported transitions from the current implementation:
+Supported transitions from the current C++ implementation:
 
 - `Passive`
   - `Start` -> `FixedPose`
 - `FixedPose`
-  - `R1 + A` -> `LocoMode` after fixed pose is complete
-  - `L1 + Y` -> `BeyondMimic` after fixed pose is complete
-  - `R1 + B` -> `BeyondMimic2` after fixed pose is complete
+  - `R1 + A` -> `LocoMode` after fixed pose completes
+  - `L1 + Y` -> `BeyondMimic` after fixed pose completes
+  - `R1 + B` -> `BeyondMimic2` after fixed pose completes
   - `F1` -> `Passive`
 - `LocoMode`
   - `L1 + Y` -> `BeyondMimic`
@@ -109,12 +74,12 @@ Supported transitions from the current implementation:
   - `R1 + A` -> `LocoMode`
   - `Start` -> `FixedPose`
   - `F1` -> `Passive`
-- At any time inside the runner:
-  - `Select` -> send damping and exit the runner
+- During runner execution:
+  - `Select` -> send damping and exit
 
 ### Launcher Flow
 
-The onboard launcher adds a guarded startup flow before the runner is spawned:
+The repository also includes a guarded launcher mode:
 
 - `Idle`
   - wait for `low_state`
@@ -135,11 +100,9 @@ Current launcher backoff policy in code:
 - failure window: 60 seconds
 - restart backoff schedule: `1s -> 3s -> 10s`
 
-## Build and Run the Current C++ Deploy Path
+## Build
 
-### Build
-
-From `deploy_real/deploycpp` on the robot:
+Run on the robot under `deploy_real/deploycpp`:
 
 ```bash
 cmake -S . -B build_release \
@@ -149,39 +112,36 @@ cmake -S . -B build_release \
 cmake --build build_release -j4
 ```
 
-The output binary is:
+Output binary:
 
 ```text
 build_release/robomimic_deploycpp
 ```
 
-### Run Directly
+## Run
+
+Run the controller directly:
 
 ```bash
 ./build_release/robomimic_deploycpp --run /home/unitree/RoboMimic_Deploy
 ```
 
-### Run Through the Launcher
+Run through the launcher:
 
 ```bash
 ./build_release/robomimic_deploycpp --launcher /home/unitree/RoboMimic_Deploy
 ```
 
-### Install the Provided `systemd` Service
+## systemd Service
 
-Service file:
+Included service files:
 
 ```text
 deploy_real/deploycpp/systemd/robomimic-launcher.service
-```
-
-Installer script:
-
-```text
 deploy_real/deploycpp/systemd/install_robomimic_launcher_service.sh
 ```
 
-The provided service runs:
+The provided service starts:
 
 ```text
 /home/unitree/RoboMimic_Deploy/deploy_real/deploycpp/build_release/robomimic_deploycpp --launcher /home/unitree/RoboMimic_Deploy
@@ -189,9 +149,9 @@ The provided service runs:
 
 If your onboard path differs, update the service file before installing it.
 
-## Useful CLI Checks
+## Diagnostics
 
-The current C++ binary exposes several validation and diagnostics commands:
+The C++ binary exposes these checks:
 
 ```bash
 ./build_release/robomimic_deploycpp --check-config /home/unitree/RoboMimic_Deploy
@@ -203,30 +163,34 @@ The current C++ binary exposes several validation and diagnostics commands:
 ./build_release/robomimic_deploycpp --dump-beyond-mimic-alignment /home/unitree/RoboMimic_Deploy
 ```
 
-These commands are useful for:
+Use them to verify:
 
-- confirming paths loaded from `real.yaml` and policy YAMLs
-- verifying ONNX / Torch model interfaces
-- checking quaternion / math utilities
-- validating FSM transitions
-- checking whether DDS `low_state` is actually arriving
-- exporting a deterministic BeyondMimic alignment fixture for debugging
+- runtime config paths
+- ONNX / Torch interfaces
+- math utilities
+- FSM transitions
+- DDS low-state connectivity
+- BeyondMimic alignment fixture export
 
-## Policies and Config
+## Runtime Config
 
-The current C++ path reads from:
+The C++ path reads:
 
 - `deploy_real/config/real.yaml`
+- `policy/passive/config/Passive.yaml`
+- `policy/fixedpose/config/FixedPose.yaml`
 - `policy/loco_mode/config/LocoMode.yaml`
 - `policy/beyond_mimic/config/BeyondMimic.yaml`
 - `policy/beyond_mimic2/config/BeyondMimic2.yaml`
 
-The checked-in default config currently indicates:
+Current default runtime values in `real.yaml`:
 
 - `net: eth0`
 - `num_joints: 29`
+- `lowcmd_topic: rt/lowcmd`
+- `lowstate_topic: rt/lowstate`
 - `control_dt: 0.02`
-- FK state estimation enabled with `g1_description/g1_29dof_rev_1_0.xml`
+- `error_over_time: 5`
 
 Current default model filenames:
 
@@ -234,14 +198,9 @@ Current default model filenames:
 - `policy/beyond_mimic/model/dance_763.onnx`
 - `policy/beyond_mimic2/model/dance_763.onnx`
 
-## Notes and Safety
+## Notes
 
-- This project is intended for G1 with a 3-DoF waist.
-- The current real-robot path assumes Unitree DDS communication is correctly configured on the robot-side network interface.
-- For onboard deployment, do not reuse `x86_64` desktop builds or desktop ONNX / LibTorch packages on Orin NX. Build and run with `aarch64` dependencies on the robot.
-- The safest workflow is still: validate in Mujoco first, then validate config / low-state / model interfaces on the robot, and only then run the onboard controller.
-
-## Where To Read Next
-
-- Root Chinese overview: `README_zh.md`
-- Detailed onboard deployment note: `deploy_real/deploycpp/README.md`
+- This workspace is intended for the C++ onboard deployment flow only.
+- For onboard deployment, do not reuse desktop `x86_64` build artifacts or desktop ONNX / LibTorch packages on Orin NX.
+- Build and run with `aarch64` dependencies on the robot.
+- Read the detailed onboard deployment guide in `deploy_real/deploycpp/README.md` before first deployment.
