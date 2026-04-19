@@ -1,167 +1,247 @@
 <div align="center">
   <h1 align="center">RoboMimic Deploy</h1>
   <p align="center">
-    <a href="README.md">🌎 English</a> | <span>🇨🇳 中文</span>
+    <a href="README.md">English</a> | <span>中文</span>
   </p>
 </div>
 
 <p align="center">
-  🎮🚪 <strong>RoboMimic Deploy 是一个基于状态切换机制的机器人多策略部署框架，目前包含的策略适用于宇树G1机器人(29dof)</strong> 🚪🎮
+  <strong>面向 Unitree G1（29 自由度）的部署工作区，包含 Mujoco 仿真、旧版 Python 实机入口，以及当前主线的 Orin NX 板载 C++ 部署链路。</strong>
 </p>
 
-## 写在前面
+## 项目现状
 
-- **本部署框架仅适用于具有三自由度腰部的G1机器人，如果装有腰部固定件的话需要按照官网教程解锁，然后才能正常使用该部署框架。**
+这个仓库现在已经不是单纯的 Python 演示项目了，当前真正的实机主线已经转到 `deploy_real/deploycpp`。
 
-- **建议拆下手掌，舞蹈动作会存在干涉**
+目前可以这样理解这个仓库：
 
-- **实际机器人部署中出现的问题，十有八九是策略适应性不足所致，大家不必过度怀疑硬件层面的缺陷。**
+- 当前推荐的实机部署路径是 `deploy_real/deploycpp` 里的 C++ 程序。
+- 这套 C++ 部署面向带 3 自由度腰部的 Unitree G1，设计目标是在机载 Orin NX（`aarch64`）上运行。
+- 当前 C++ 状态机一共支持 5 个状态：
+  - `Passive`
+  - `FixedPose`
+  - `LocoMode`
+  - `BeyondMimic`
+  - `BeyondMimic2`
+- `LocoMode` 走 LibTorch / TorchScript。
+- `BeyondMimic` 和 `BeyondMimic2` 走 ONNX Runtime。
+- 仓库里已经包含 `launcher` 模式和 `systemd` 自启服务，适合做板载自动启动。
 
-- **[视频教程](https://www.bilibili.com/video/BV1VTKHzSE6C/?vd_source=713b35f59bdf42930757aea07a44e7cb#reply114743994027967)**
+同时，仓库里也还保留了一些旧内容，但它们已经不是根 README 应该重点强调的主线：
 
-## 安装配置
+- `deploy_real/deploy_real.py` 仍然保留，作为旧版 Python 实机入口。
+- `policy/` 下面的 `dance`、`kungfu`、`kick`、`skill_cast`、`skill_cooldown` 等策略资产还在仓库里，但当前板载 C++ 主链路聚焦的是 `Passive -> FixedPose -> LocoMode / BeyondMimic / BeyondMimic2`。
 
-## 1. 创建虚拟环境
+## 仓库结构
 
-建议在虚拟环境中运行训练或部署程序，推荐使用 Conda 创建虚拟环境。
+| 路径 | 作用 |
+| --- | --- |
+| `deploy_mujoco/` | Mujoco 仿真入口 |
+| `deploy_real/deploy_real.py` | 旧版 Python 实机入口 |
+| `deploy_real/deploycpp/` | 当前 C++ 板载部署程序 |
+| `deploy_real/config/real.yaml` | 实机 DDS / 控制周期 / 机器人基础配置 |
+| `policy/loco_mode/` | 行走策略配置和 TorchScript 模型 |
+| `policy/beyond_mimic/` | BeyondMimic ONNX 策略资产 |
+| `policy/beyond_mimic2/` | BeyondMimic2 ONNX 策略资产 |
+| `tests/` | 仓库已有的 Python 侧测试与工具 |
+| `deploy_real/deploycpp/tests/` | C++ 单测、冒烟测试、FSM / launcher 测试 |
+| `deploy_real/deploycpp/systemd/` | 板载自启服务文件 |
 
-### 1.1 创建新环境
+## 运行路径
 
-使用以下命令创建虚拟环境：
+### 1. Mujoco 仿真
 
-```bash
-conda create -n robomimic python=3.8
-```
+不接真机时，先用它验证策略和状态切换：
 
-### 1.2 激活虚拟环境
-
-```bash
-conda activate robomimic
-```
-
----
-
-## 2. 安装依赖
-
-### 2.1 安装 PyTorch
-
-PyTorch 是一个神经网络计算框架，用于模型训练和推理。使用以下命令安装：
-
-```bash
-conda install pytorch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 pytorch-cuda=12.1 -c pytorch -c nvidia
-```
-
-### 2.2 安装 RoboMimic_Deploy
-
-#### 2.2.1 下载
-
-通过 Git 克隆仓库：
-
-```bash
-git clone https://github.com/ccrpRepo/RoboMimic_Deploy.git
-```
-
-#### 2.2.2 安装组件
-
-进入目录并安装：
-
-```bash
-cd RoboMimic_Deploy
-pip install numpy==1.20.0
-pip install onnx onnxruntime
-```
-#### 2.2.3 安装unitree_sdk2_python
-
-```bash
-git clone https://github.com/unitreerobotics/unitree_sdk2_python.git
-cd unitree_sdk2_python
-pip install -e .
-```
----
-## 运行代码
-
-## 1. 运行Mujoco仿真代码
 ```bash
 python deploy_mujoco/deploy_mujoco.py
 ```
----
-## 2. Policy 说明
-| 模式名称          | 描述                                                                 |
-|------------------|----------------------------------------------------------------------|
-| **PassiveMode**  | 阻尼保护模式                                                         |
-| **FixedPose**    | 位控恢复至默认关节值                                                 |
-| **LocoMode**     | 用于稳定行走的控制模式                                               |
-| **Dance**        | 查尔斯顿舞蹈                                                         |
-| **KungFu**       | 武术动作                                                             |
-| **KungFu2**      | 训练失败的武术动作                                                   |
-| **Kick**         | 拿来凑数的动作                                                       |
-| **SkillCast**    | 下肢+腰部稳定站立，上肢位控至特定关节角，一般在执行Mimic策略前执行   |
-| **SkillCooldown**| 下肢+腰部持续平衡，上肢恢复至默认关节角，一般在执行Mimic策略后执行    |
 
----
-## 3. 仿真操作说明
+### 2. 旧版 Python 实机入口
 
-1. 连接Xbox手柄
+这条路径还在，但已经不是当前项目的主推部署方向：
 
-2. 运行仿真程序：
-```bash
-python deploy_mujoco/deploy_mujoco.py
-```
-3. Start键进入位控模式
-
-4. 同时按住R1+A，进入LocoMode，并按下`BACKSPACE`在仿真中使机器人站立，之后能通过摇杆控制机器人行走
-
-5. 同时按住R1+X，进入Dance，机器人开始跳查尔斯顿舞蹈，在该模式下，可以随时按下Select进入阻尼保护模式，也可以按住R1+A恢复行走模式（不推荐），或按Start进入位控模式（不推荐）
-
-6. 终端会显示舞蹈的进度条，结束后可按下R1+A恢复至正常行走模式
-
-7. 在LocoMode模式下，按R1+Y让机器人表演武术动作，**只推荐在仿真中使用**
-
-8. 在LocoMode模式下，按L1+Y让机器人表演训练失败的武术动作，**只推荐在仿真中使用**
-
-9. 在LocoMode模式下，按R1+B让机器人表演踢腿动作，**只推荐在仿真中使用**
----
-## 4. 真机操作说明
-1. 开机后将机器人吊起来，按L2+R2进入调试模式
-
-2. 运行deploy_real程序：
 ```bash
 python deploy_real/deploy_real.py
 ```
-3. Start键进入位控模式
 
-4. 后续操作与仿真中一致
+### 3. 当前 C++ 板载部署
 
----
+这是现在仓库重点围绕的一条链路：
+
+- 可执行文件：`deploy_real/deploycpp/build_release/robomimic_deploycpp`
+- 目标平台：机载 Orin NX
+- 依赖：`unitree_sdk2` C++ SDK、ONNX Runtime `aarch64`、LibTorch `aarch64`、`yaml-cpp`、`cmake`、`g++`
+
+更详细的板载部署说明见：
+
+- `deploy_real/deploycpp/README.md`
+
+## 当前 C++ 状态机与按键
+
+### Runner 状态机
+
+当前板载 runner 使用的是这条状态链路：
+
+```text
+Passive -> FixedPose -> LocoMode / BeyondMimic / BeyondMimic2
+```
+
+当前代码里明确支持的切换规则如下：
+
+- `Passive`
+  - `Start` -> `FixedPose`
+- `FixedPose`
+  - `R1 + A` -> `LocoMode`，前提是 `FixedPose` 已完成
+  - `L1 + Y` -> `BeyondMimic`，前提是 `FixedPose` 已完成
+  - `R1 + B` -> `BeyondMimic2`，前提是 `FixedPose` 已完成
+  - `F1` -> `Passive`
+- `LocoMode`
+  - `L1 + Y` -> `BeyondMimic`
+  - `R1 + B` -> `BeyondMimic2`
+  - `Start` -> `FixedPose`
+  - `F1` -> `Passive`
+- `BeyondMimic`
+  - `R1 + A` -> `LocoMode`
+  - `Start` -> `FixedPose`
+  - `F1` -> `Passive`
+- `BeyondMimic2`
+  - `R1 + A` -> `LocoMode`
+  - `Start` -> `FixedPose`
+  - `F1` -> `Passive`
+- runner 运行期间任意时刻：
+  - `Select` -> 发送阻尼并退出 runner
+
+### Launcher 启动流程
+
+在 runner 之外，当前板载方案还加了一层 `launcher` 守护启动逻辑：
+
+- `Idle`
+  - 等待 `low_state`
+  - `L2 + R2` -> `Armed`
+- `Armed`
+  - 在超时窗口内按一次 `X` -> 拉起 runner
+- `Running`
+  - 监控子进程
+  - 失败时按退避策略自动重启
+- `Locked`
+  - 连续快速失败过多后进入锁定
+  - 需要重新 arm
+
+当前代码里的 launcher 参数是：
+
+- arm 超时：5 秒
+- 快速失败阈值：2 秒
+- 失败统计窗口：60 秒
+- 自动重启退避：`1s -> 3s -> 10s`
+
+## 当前 C++ 板载构建与运行
+
+### 编译
+
+在机器人上的 `deploy_real/deploycpp` 目录执行：
+
+```bash
+cmake -S . -B build_release \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DONNXRUNTIME_ROOT=/home/unitree/onnxruntime-linux-aarch64-1.19.2 \
+  -DLIBTORCH_ROOT=/home/unitree/RoboMimic_Deploy/deploy_real/deploycpp/libtorch
+cmake --build build_release -j4
+```
+
+生成的目标文件是：
+
+```text
+build_release/robomimic_deploycpp
+```
+
+### 直接运行 runner
+
+```bash
+./build_release/robomimic_deploycpp --run /home/unitree/RoboMimic_Deploy
+```
+
+### 通过 launcher 运行
+
+```bash
+./build_release/robomimic_deploycpp --launcher /home/unitree/RoboMimic_Deploy
+```
+
+### 安装仓库自带的 `systemd` 自启服务
+
+服务文件：
+
+```text
+deploy_real/deploycpp/systemd/robomimic-launcher.service
+```
+
+安装脚本：
+
+```text
+deploy_real/deploycpp/systemd/install_robomimic_launcher_service.sh
+```
+
+当前仓库自带的服务默认执行：
+
+```text
+/home/unitree/RoboMimic_Deploy/deploy_real/deploycpp/build_release/robomimic_deploycpp --launcher /home/unitree/RoboMimic_Deploy
+```
+
+如果你的板载路径不是这个，先改服务文件再安装。
+
+## 常用检查命令
+
+当前 C++ 可执行程序已经内置了不少自检入口：
+
+```bash
+./build_release/robomimic_deploycpp --check-config /home/unitree/RoboMimic_Deploy
+./build_release/robomimic_deploycpp --check-onnx /home/unitree/RoboMimic_Deploy
+./build_release/robomimic_deploycpp --check-torch /home/unitree/RoboMimic_Deploy
+./build_release/robomimic_deploycpp --check-math
+./build_release/robomimic_deploycpp --check-fsm /home/unitree/RoboMimic_Deploy
+./build_release/robomimic_deploycpp --probe-lowstate /home/unitree/RoboMimic_Deploy
+./build_release/robomimic_deploycpp --dump-beyond-mimic-alignment /home/unitree/RoboMimic_Deploy
+```
+
+这些命令分别适合拿来检查：
+
+- `real.yaml` 和策略 YAML 是否被正确加载
+- ONNX / Torch 模型接口是否匹配
+- 数学工具函数是否正常
+- FSM 切换逻辑是否符合当前实现
+- DDS `low_state` 是否真的通了
+- BeyondMimic 对齐数据是否能导出用于调试
+
+## 当前配置与模型
+
+当前 C++ 链路会读取这些配置：
+
+- `deploy_real/config/real.yaml`
+- `policy/loco_mode/config/LocoMode.yaml`
+- `policy/beyond_mimic/config/BeyondMimic.yaml`
+- `policy/beyond_mimic2/config/BeyondMimic2.yaml`
+
+当前仓库里默认配置可以概括为：
+
+- `net: eth0`
+- `num_joints: 29`
+- `control_dt: 0.02`
+- 开启 FK 状态估计，模型路径为 `g1_description/g1_29dof_rev_1_0.xml`
+
+当前默认模型文件名：
+
+- `policy/loco_mode/model/policy_29dof.pt`
+- `policy/beyond_mimic/model/dance_763.onnx`
+- `policy/beyond_mimic2/model/dance_763.onnx`
+
 ## 注意事项
-### 1. 框架兼容性说明
-当前框架暂不支持在搭载Orin NX平台的G1机器人上直接部署。初步分析可能是由于`unitree_python_sdk`在Orin平台上的兼容性问题。针对机载Orin平台的部署需求，建议采用以下替代方案：
 
-- 使用[unitree_sdk2](https://github.com/unitreerobotics/unitree_sdk2)替代原Python SDK
-- 基于ROS构建双节点架构：
-  - **C++节点**：负责机器人与遥控器之间的数据收发
-  - **Python节点**：专用于策略推理
+- 这套仓库当前面向的是带 3 自由度腰部的 G1。
+- 实机部署前要先确认机器人侧 DDS 通信网卡配置正确。
+- 板载部署时不要直接复用桌面机上编出来的 `x86_64` 产物，也不要复用桌面机版本的 ONNX Runtime / LibTorch。
+- 最稳妥的流程仍然是：先在 Mujoco 里熟悉流程，再在真机上检查配置、模型和 `low_state`，最后再启动板载控制。
 
-### 2. Mimic策略可靠性警告
-Mimic策略不保证100%成功率，特别是在湿滑/沙地等复杂地面上。若出现机器人失控情况：
-- 按下`F1`键激活**阻尼保护模式**(PassiveMode)
-- 按下`Select`键立即终止控制程序
+## 下一步阅读
 
-### 3. 查尔斯顿舞蹈(R1+X) - 稳定策略说明
-目前唯一在真机上验证稳定的策略：
-
-⚠️ **重要注意事项**：
-- **建议拆除手掌**：原始训练未考虑手掌碰撞（作者的G1初始无手掌）
-- **起止稳定需求**：舞蹈开始/结束时可能需要短暂人工稳定
-- **舞蹈后过渡**：虽然可以切换至**行走模式/位控模式/阻尼模式**，但建议：
-  - 先切换至**位控模式**或**阻尼模式**
-  - 过渡期间需提供人工稳定
-
-### 4. 其他动作建议
-其他所有动作目前均**不建议**在真机上部署。
-
-### 5. 强烈建议
-**务必**先在仿真环境中熟练操作，再尝试真机部署。
-
-
-
+- 英文版总览：`README.md`
+- 板载部署详细说明：`deploy_real/deploycpp/README.md`

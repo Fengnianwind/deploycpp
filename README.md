@@ -1,157 +1,247 @@
 <div align="center">
   <h1 align="center">RoboMimic Deploy</h1>
   <p align="center">
-    <span> 🌎English </span> | <a href="README_zh.md"> 🇨🇳中文 </a>
+    <span>English</span> | <a href="README_zh.md">中文</a>
   </p>
 </div>
 
 <p align="center">
-  <strong>​RoboMimic Deploy​​ is a multi-policy robot deployment framework based on a state-switching mechanism. Currently, the included policies are designed for the ​​Unitree G1 robot (29-DoF)​​.</strong> 
+  <strong>Deployment workspace for Unitree G1 (29-DoF), covering Mujoco simulation, a legacy Python real-robot entry, and the current C++ onboard deployment path for Orin NX.</strong>
 </p>
 
-## Preface
+## Current Status
 
-- **​This deployment framework is only applicable to G1 robots with a 3-DOF waist. If a waist fixing bracket is installed, it must be unlocked according to the official tutorial before this framework can be used normally.​​**
+This repository has evolved from a Python-first demo into a project whose main real-robot path is `deploy_real/deploycpp`.
 
-- **It is recommended to remove the hands, as dance movements may cause interference.​**
-  
-- **When deploying real robots, if something goes wrong, it's probably the policy's fault—not your hardware. Don't waste time second-guessing your robot's physical setup.**
+What is current today:
 
-- **[video instruction](https://www.bilibili.com/video/BV1VTKHzSE6C/?vd_source=713b35f59bdf42930757aea07a44e7cb#reply114743994027967)**
+- The recommended real-robot deployment path is the C++ program under `deploy_real/deploycpp`.
+- The C++ deploy path targets Unitree G1 with a 3-DoF waist and is intended to run onboard on Orin NX (`aarch64`).
+- The active C++ finite-state machine currently supports 5 states:
+  - `Passive`
+  - `FixedPose`
+  - `LocoMode`
+  - `BeyondMimic`
+  - `BeyondMimic2`
+- `LocoMode` uses LibTorch / TorchScript.
+- `BeyondMimic` and `BeyondMimic2` use ONNX Runtime.
+- A launcher mode and `systemd` service are included for unattended onboard startup.
 
-## Installation and Configuration
+What is still in the repo but is no longer the main story of the root README:
 
-## 1. Create a Virtual Environment
+- `deploy_real/deploy_real.py` remains as the older Python real-robot entry.
+- Older policy assets such as `dance`, `kungfu`, `kick`, `skill_cast`, and `skill_cooldown` are still present under `policy/`, but the current onboard C++ flow is centered on `Passive -> FixedPose -> LocoMode / BeyondMimic / BeyondMimic2`.
 
-It is recommended to run training or deployment programs in a virtual environment. We suggest using Conda to create one.
+## Repository Layout
 
-### 1.1 Create a New Environment
+| Path | Role |
+| --- | --- |
+| `deploy_mujoco/` | Mujoco simulation entry |
+| `deploy_real/deploy_real.py` | Legacy Python real-robot entry |
+| `deploy_real/deploycpp/` | Current C++ onboard deployment program |
+| `deploy_real/config/real.yaml` | Robot / DDS / timing config shared by real deployment |
+| `policy/loco_mode/` | Walking policy config and TorchScript model |
+| `policy/beyond_mimic/` | BeyondMimic ONNX policy assets |
+| `policy/beyond_mimic2/` | BeyondMimic2 ONNX policy assets |
+| `tests/` | Python-side tests and utilities already present in the repo |
+| `deploy_real/deploycpp/tests/` | C++ unit / smoke / FSM / launcher tests |
+| `deploy_real/deploycpp/systemd/` | Onboard auto-start service files |
 
-Use the following command to create a virtual environment:
-```bash
-conda create -n robomimic python=3.8
-```
+## Execution Paths
 
-### 1.2 Activate the Virtual Environment
+### 1. Mujoco Simulation
 
-```bash
-conda activate robomimic
-```
+Use this when you want to validate policies and controller flow without hardware:
 
----
-
-## 2. Install Dependencies
-
-### 2.1 Install PyTorch
-PyTorch is a neural network computation framework used for model training and inference. Install it with the following command:
-```bash
-conda install pytorch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 pytorch-cuda=12.1 -c pytorch -c nvidia
-```
-
-### 2.2 Install RoboMimic_Deploy
-
-#### 2.2.1 Download
-Clone the repository via git:
-
-```bash
-git clone https://github.com/ccrpRepo/RoboMimic_Deploy.git
-```
-
-#### 2.2.2 Install Components
-
-Navigate to the directory and install:
-```bash
-cd RoboMimic_Deploy
-pip install numpy==1.20.0
-pip install onnx onnxruntime
-```
-
-#### 2.2.3 Install unitree_sdk2_python
-
-```bash
-git clone https://github.com/unitreerobotics/unitree_sdk2_python.git
-cd unitree_sdk2_python
-pip install -e .
-```
----
-## Running the Code
-
-## 1. Run Mujoco Simulation
 ```bash
 python deploy_mujoco/deploy_mujoco.py
 ```
 
-## 2. Policy Descriptions
-| Mode Name        | Description                                                                 |
-|------------------|-----------------------------------------------------------------------------|
-| **PassiveMode**  | Damping protection mode                                                     |
-| **FixedPose**    | Position control reset to default joint values                              |
-| **LocoMode**     | Stable walking control mode                                                 |
-| **Dance**        | Charleston dance routine                                                    |
-| **KungFu**       | Martial arts movement                                                       |
-| **KungFu2**      | Failed martial arts training                                     |
-| **Kick**         | Bad mimic policy                                     |
-| **SkillCast**    | Lower body + waist stabilization with upper limbs positioned to specific joint angles (typically executed before Mimic strategy) |
-| **SkillCooldown**| Lower body + waist continuous balancing with upper limbs reset to default angles (typically executed after Mimic strategy) |
+### 2. Legacy Python Real Deployment
 
+This path still exists, but it is no longer the main deployment direction of the project:
 
----
-## 3. Operation Instructions in Simulation
-1. Connect an Xbox controller.
-2. Run the simulation program:
-```bash
-python deploy_mujoco/deploy_mujoco.py
-```
-3. Press the ​​Start​​ button to enter position control mode.
-4. Hold ​​R1 + A​​ to enter ​​LocoMode​​, then press BACKSPACE in the simulation to make the robot stand. Afterward, use the joystick to control walking.
-5. Hold ​​R1 + X​​ to enter ​​Dance​​ mode—the robot will perform the Charleston. In this mode:
-    - Press ​​Select​​ at any time to switch to damping protection mode.
-    - Hold ​​R1 + A​​ to return to walking mode (not recommended).
-    - Press ​​Start​​ to return to position control mode.
-
-6. The terminal will display a progress bar for the dance. After completion, press ​​R1 + A​​ to return to normal walking mode.
-7. In ​​LocoMode​​, pressing ​​R1 + Y​​ triggers a Martial arts movement —​ ​use only in simulation​​.
-8. In ​​LocoMode​​, pressing ​​L1 + Y​​ triggers a Martial arts movement(Failed) —​ ​use only in simulation​​.
-9. In ​​LocoMode​​, pressing ​​R1 + B​ triggers a Kick movement(Failed) —​ ​use only in simulation​​.
----
-## 4. Real Robot Operation Instructions
-
-1. Power on the robot and suspend it (e.g., with a harness). and then hold L2+R2
-
-2. Run the deploy_real program:
 ```bash
 python deploy_real/deploy_real.py
 ```
-3. Press the ​​Start​​ button to enter position control mode.
-4. Subsequent operations are the same as in simulation.
 
----
-## Important Notes
-### 1. Framework Compatibility Notice
-The current framework does not natively support deployment on G1 robots equipped with Orin NX platforms. Preliminary analysis suggests compatibility issues with the `unitree_python_sdk` on Orin systems. For onboard Orin deployment, we recommend the following alternative solution:
+### 3. Current C++ Onboard Deployment
 
-- Replace with [unitree_sdk2](https://github.com/unitreerobotics/unitree_sdk2) (official C++ SDK)
-- Implement a dual-node ROS architecture:
-  - **C++ Node**: Handles data transmission between robot and controller
-  - **Python Node**: Dedicated to policy inference
+This is the main path the project is now organized around:
 
-### 2. Mimic Policy Reliability Warning
-The Mimic policy does not guarantee 100% success rate, particularly on slippery/sandy surfaces. In case of robot instability:
-- Press `F1` to activate **PassiveMode** (damping protection)
-- Press `Select` to immediately terminate the control program
+- executable: `deploy_real/deploycpp/build_release/robomimic_deploycpp`
+- intended platform: Unitree G1 onboard Orin NX
+- dependencies: `unitree_sdk2` C++ SDK, ONNX Runtime (`aarch64`), LibTorch (`aarch64`), `yaml-cpp`, `cmake`, `g++`
 
-### 3. Charleston Dance (R1+X) - Stable Policy Notes
-Currently the only verified stable policy on physical robots:
+The detailed onboard deployment guide lives in:
 
-⚠️ **Important Precautions**:
-- **Palm Removal Recommended**: The original training didn't account for palm collisions (author's G1 lacked palms)
-- **Initial/Final Stabilization**: Brief manual stabilization may be required when starting/ending the dance
-- **Post-Dance Transition**: While switching to **Locomotion/PositionControl/PassiveMode** is possible, we recommend:
-  - First transition to **PositionControl** or **PassiveMode**
-  - Provide manual stabilization during transition
+- English / Chinese mixed board-deploy note: `deploy_real/deploycpp/README.md`
 
-### 4. Other Movement Advisories
-All other movements are currently **not recommended** for physical robot deployment.
+## Current C++ FSM and Controls
 
-### 5. Strong Recommendation
-**Always** master operations in simulation before attempting physical robot deployment.
+### Runner States
+
+The onboard runner currently uses this state machine:
+
+```text
+Passive -> FixedPose -> LocoMode / BeyondMimic / BeyondMimic2
+```
+
+Supported transitions from the current implementation:
+
+- `Passive`
+  - `Start` -> `FixedPose`
+- `FixedPose`
+  - `R1 + A` -> `LocoMode` after fixed pose is complete
+  - `L1 + Y` -> `BeyondMimic` after fixed pose is complete
+  - `R1 + B` -> `BeyondMimic2` after fixed pose is complete
+  - `F1` -> `Passive`
+- `LocoMode`
+  - `L1 + Y` -> `BeyondMimic`
+  - `R1 + B` -> `BeyondMimic2`
+  - `Start` -> `FixedPose`
+  - `F1` -> `Passive`
+- `BeyondMimic`
+  - `R1 + A` -> `LocoMode`
+  - `Start` -> `FixedPose`
+  - `F1` -> `Passive`
+- `BeyondMimic2`
+  - `R1 + A` -> `LocoMode`
+  - `Start` -> `FixedPose`
+  - `F1` -> `Passive`
+- At any time inside the runner:
+  - `Select` -> send damping and exit the runner
+
+### Launcher Flow
+
+The onboard launcher adds a guarded startup flow before the runner is spawned:
+
+- `Idle`
+  - wait for `low_state`
+  - `L2 + R2` -> `Armed`
+- `Armed`
+  - press `X` within the arm timeout window -> spawn runner
+- `Running`
+  - monitor child process
+  - restart with backoff on repeated failures
+- `Locked`
+  - entered after repeated fast failures
+  - requires re-arm
+
+Current launcher backoff policy in code:
+
+- arm timeout: 5 seconds
+- fast-failure threshold: 2 seconds
+- failure window: 60 seconds
+- restart backoff schedule: `1s -> 3s -> 10s`
+
+## Build and Run the Current C++ Deploy Path
+
+### Build
+
+From `deploy_real/deploycpp` on the robot:
+
+```bash
+cmake -S . -B build_release \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DONNXRUNTIME_ROOT=/home/unitree/onnxruntime-linux-aarch64-1.19.2 \
+  -DLIBTORCH_ROOT=/home/unitree/RoboMimic_Deploy/deploy_real/deploycpp/libtorch
+cmake --build build_release -j4
+```
+
+The output binary is:
+
+```text
+build_release/robomimic_deploycpp
+```
+
+### Run Directly
+
+```bash
+./build_release/robomimic_deploycpp --run /home/unitree/RoboMimic_Deploy
+```
+
+### Run Through the Launcher
+
+```bash
+./build_release/robomimic_deploycpp --launcher /home/unitree/RoboMimic_Deploy
+```
+
+### Install the Provided `systemd` Service
+
+Service file:
+
+```text
+deploy_real/deploycpp/systemd/robomimic-launcher.service
+```
+
+Installer script:
+
+```text
+deploy_real/deploycpp/systemd/install_robomimic_launcher_service.sh
+```
+
+The provided service runs:
+
+```text
+/home/unitree/RoboMimic_Deploy/deploy_real/deploycpp/build_release/robomimic_deploycpp --launcher /home/unitree/RoboMimic_Deploy
+```
+
+If your onboard path differs, update the service file before installing it.
+
+## Useful CLI Checks
+
+The current C++ binary exposes several validation and diagnostics commands:
+
+```bash
+./build_release/robomimic_deploycpp --check-config /home/unitree/RoboMimic_Deploy
+./build_release/robomimic_deploycpp --check-onnx /home/unitree/RoboMimic_Deploy
+./build_release/robomimic_deploycpp --check-torch /home/unitree/RoboMimic_Deploy
+./build_release/robomimic_deploycpp --check-math
+./build_release/robomimic_deploycpp --check-fsm /home/unitree/RoboMimic_Deploy
+./build_release/robomimic_deploycpp --probe-lowstate /home/unitree/RoboMimic_Deploy
+./build_release/robomimic_deploycpp --dump-beyond-mimic-alignment /home/unitree/RoboMimic_Deploy
+```
+
+These commands are useful for:
+
+- confirming paths loaded from `real.yaml` and policy YAMLs
+- verifying ONNX / Torch model interfaces
+- checking quaternion / math utilities
+- validating FSM transitions
+- checking whether DDS `low_state` is actually arriving
+- exporting a deterministic BeyondMimic alignment fixture for debugging
+
+## Policies and Config
+
+The current C++ path reads from:
+
+- `deploy_real/config/real.yaml`
+- `policy/loco_mode/config/LocoMode.yaml`
+- `policy/beyond_mimic/config/BeyondMimic.yaml`
+- `policy/beyond_mimic2/config/BeyondMimic2.yaml`
+
+The checked-in default config currently indicates:
+
+- `net: eth0`
+- `num_joints: 29`
+- `control_dt: 0.02`
+- FK state estimation enabled with `g1_description/g1_29dof_rev_1_0.xml`
+
+Current default model filenames:
+
+- `policy/loco_mode/model/policy_29dof.pt`
+- `policy/beyond_mimic/model/dance_763.onnx`
+- `policy/beyond_mimic2/model/dance_763.onnx`
+
+## Notes and Safety
+
+- This project is intended for G1 with a 3-DoF waist.
+- The current real-robot path assumes Unitree DDS communication is correctly configured on the robot-side network interface.
+- For onboard deployment, do not reuse `x86_64` desktop builds or desktop ONNX / LibTorch packages on Orin NX. Build and run with `aarch64` dependencies on the robot.
+- The safest workflow is still: validate in Mujoco first, then validate config / low-state / model interfaces on the robot, and only then run the onboard controller.
+
+## Where To Read Next
+
+- Root Chinese overview: `README_zh.md`
+- Detailed onboard deployment note: `deploy_real/deploycpp/README.md`
